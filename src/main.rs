@@ -53,12 +53,12 @@ lazy_static! {
 
 fn main() {
     let user = UserBase {
-        first_name: "Nathan".to_string(),
-        middle_name: "W".to_string(),
-        last_name: "Pino".to_string(),
-        user_name: "np11@txstate.edu".to_string(),
-        org_defined_id: Some("A00181786".to_string()),
-        external_email: Some("np11@txstate.edu".to_string()),
+        first_name: "John".to_string(),
+        middle_name: "".to_string(),
+        last_name: "Doe".to_string(),
+        user_name: "j_d1@txstate.edu".to_string(),
+        org_defined_id: Some("A00000000".to_string()),
+        external_email: Some("jdoe@txstate.edu".to_string()),
     };
     let client = Client::builder()
         .timeout(Duration::from_secs(360))
