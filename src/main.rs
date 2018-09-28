@@ -8,14 +8,18 @@ extern crate sha2;
 extern crate base64;
 extern crate hyper;
 extern crate reqwest;
+extern crate mysql;
 
 mod sync;
+mod source;
 
 //use chrono::Utc;
 use std::time::Duration;
 use std::env;
+use std::str::FromStr;
 
-use sync::{Sync, UserBase, FetchError};
+use source::Source;
+use sync::{Sync, UserBase, Role};
 use reqwest::Client;
 
 lazy_static! {
@@ -51,15 +55,63 @@ lazy_static! {
     };
 }
 
-fn main() {
-    let user = UserBase {
-        first_name: "John".to_string(),
-        middle_name: "".to_string(),
-        last_name: "Doe".to_string(),
-        user_name: "j_d1@txstate.edu".to_string(),
-        org_defined_id: Some("A00000000".to_string()),
-        external_email: Some("jdoe@txstate.edu".to_string()),
+/// SOURCE environment variable contains
+/// the "warehouse" connection uri.
+/// This database will be used to read
+/// journal entries to find users that
+/// need to be updated as well as pull
+/// user information used to sync d2l
+/// Example: "mysql://usr:pwd@host:port/database?options"
+lazy_static! {
+    static ref SOURCE: Option<String> = {
+        match env::var("D2L_SOURCE") {
+            Ok(uri) => Some(uri),
+            Err(_) => None,
+        }
     };
+}
+
+lazy_static! {
+    static ref QUERY_JOURNAL: Option<String> = {
+        match env::var("D2L_QUERY_JOURNAL") {
+            Ok(q) => Some(q),
+            Err(_) => None,
+        }
+    };
+}
+
+lazy_static! {
+    static ref QUERY_USER: Option<String> = {
+        match env::var("D2L_QUERY_USER") {
+            Ok(q) => Some(q),
+            Err(_) => None,
+        }
+    };
+}
+
+fn main() {
+    let args: Vec<String> = env::args().skip(1).collect();
+    let mut args = args.iter();
+    let mut id: Option<usize> = None;
+    let mut data: Option<UserBase> = None;
+    let mut role: Option<Role> = Some(Role::Student);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-d" | "--data" => if let Some(d) = args.next() {
+                data = Some(serde_json::from_str(&d).unwrap());
+            },
+            "-r" | "--role"  => if let Some(r) = args.next() {
+                role = Some(Role::from_str(&r).unwrap());
+            },
+            "-i" | "--id" => if let Some(i) = args.next() {
+                id = Some(i.parse::<usize>().unwrap());
+            },
+            _ => {
+                eprintln!("Unknown option {:?}", arg);
+                std::process::exit(1);
+            }
+        }
+    }
     let client = Client::builder()
         .timeout(Duration::from_secs(360))
         .build().expect("Unable to create client");
@@ -71,16 +123,19 @@ fn main() {
         uri_base: &*URI_BASE,
         client: client,
     };
-    match sync.read(&user) {
-        Ok(Some(user_id)) => match sync.update(user_id, &user) {
-            Ok(()) => println!("Updated user: {:?}", user.user_name),
-            Err(e) => eprintln!("Error while updating user {:?}, {:?}", user, e),
-        },
-        Ok(None) => match sync.create("109".to_string(), &user) {
-            Ok(()) => println!("Created user: {:?}", user.user_name),
-            Err(e) => eprintln!("Error while creating user {:?}, {:?}", user, e),
-        },
-        Err(FetchError::NOP) => println!("No update required for {}", user.user_name),
-        Err(e) => eprintln!("Error: {:?}", e),
+    if let (Some(id), Some(ref source), Some(ref query_user)) = (id, &*SOURCE, &*QUERY_USER) {
+        let db = Source::new(source, query_user, &*QUERY_JOURNAL).unwrap();
+        match db.fetch(id).unwrap() {
+            Some((r, u)) => match sync.upsert(r, &u) {
+                Ok(r) => println!("{:?}: {:?}", r, u),
+                Err(e) => eprintln!("Upsert error {:?}: {:?}", e, u),
+            },
+            None => println!("User {:?} not found", id),
+        }
+    } else if let (Some(r), Some(u)) = (role, data) {
+        match sync.upsert(r, &u) {
+            Ok(r) => println!("{:?}: {:?}", r, u),
+            Err(e) => eprintln!("Upsert error {:?}: {:?}", e, u),
+        }
     }
 }

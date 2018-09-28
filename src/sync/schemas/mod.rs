@@ -47,13 +47,57 @@
 //   "Activation": {"IsActive": true}
 // }
 
+use std::str::FromStr;
+
+#[derive(Debug)]
+pub struct ParseError {
+    err: &'static str,
+}
+
+// "109" = Instructor, "110" = Student
+#[derive(Clone, Copy, Debug)]
+pub enum Role {
+    Instructor,
+    Student,
+}
+
+impl Role {
+    pub fn lossy_new(role_id: &str) -> Role {
+        match role_id {
+            "109" => Role::Instructor,
+            "110" => Role::Student,
+            // default to Student
+            _ => Role::Student,
+        }
+    }
+
+    pub fn id(&self) -> &str {
+        match self {
+            Role::Instructor => "109",
+            Role::Student => "110",
+        }
+    }
+}
+
+impl FromStr for Role {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Instructor" => Ok(Role::Instructor),
+            "Student" => Ok(Role::Student),
+            _ => Err(ParseError{err: "Invalid Role type"}),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct Activation {
     pub is_active: bool,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
 pub struct UserBase {
     pub first_name: String,

@@ -6,7 +6,7 @@ use sha2::Sha256;
 use base64::URL_SAFE_NO_PAD;
 
 use self::schemas::{UserReadOrUpdate, UserCreate, Activation};
-pub use self::schemas::UserBase;
+pub use self::schemas::{UserBase, Role};
 use hyper::StatusCode;
 use reqwest::Client;
 use std::io::Read;
@@ -33,7 +33,18 @@ fn signature(key: &[u8], message: &[u8]) -> String {
 }
 
 impl Sync {
-    pub fn read(&self, user_base: &UserBase) -> Result<Option<usize>, FetchError> {
+    pub fn upsert(&self, role: Role, user_base: &UserBase) -> Result<SyncOk, SyncError> {
+        match self.read(&user_base)? {
+            Some(user) => if user.user_base == *user_base && user.activation.is_active == true {
+                Ok(SyncOk::NOP)
+            } else {
+                self.update(user.user_id, &user_base)
+            },
+            None => self.create(role, &user_base),
+        }
+    }
+
+    pub fn read(&self, user_base: &UserBase) -> Result<Option<(UserReadOrUpdate)>, SyncError> {
         let epoch = Utc::now().timestamp();
         let sig_body = format!("{}&{}&{}", "GET", USR_PATH, epoch);
 
@@ -45,20 +56,15 @@ impl Sync {
         if resp.status() == StatusCode::OK {
             let mut body = String::new();
             resp.read_to_string(&mut body)?;
-            let user: UserReadOrUpdate = serde_json::from_str(&body)?;
-            if user.user_base == *user_base && user.activation.is_active == true {
-                Err(FetchError::NOP)
-            } else {
-                Ok(Some(user.user_id))
-            }
+            Ok(Some(serde_json::from_str(&body)?))
         } else if resp.status() == StatusCode::NOT_FOUND {
             Ok(None)
         } else {
-            Err(FetchError::StatusCode(resp.status()))
+            Err(SyncError::StatusCode(resp.status()))
         }
     }
 
-    pub fn update(&self, user_id: usize, user_base: &UserBase) -> Result<(), FetchError> {
+    pub fn update(&self, user_id: usize, user_base: &UserBase) -> Result<SyncOk, SyncError> {
         let user = UserReadOrUpdate {
             user_base: user_base.clone(),
             user_id: user_id,
@@ -75,16 +81,16 @@ impl Sync {
             .body(serde_json::to_string(&user)?)
             .send()?;
         if resp.status() == StatusCode::OK {
-            Ok(())
+            Ok(SyncOk::Updated)
         } else {
-            Err(FetchError::StatusCode(resp.status()))
+            Err(SyncError::StatusCode(resp.status()))
         }
     }
 
-    pub fn create(&self, role: String, user_base: &UserBase) -> Result<(), FetchError> {
+    pub fn create(&self, role: Role, user_base: &UserBase) -> Result<SyncOk, SyncError> {
         let user = UserCreate {
             user_base: user_base.clone(),
-            role_id: role,
+            role_id: role.id().to_string(),
             is_active: true,
             send_creation_email: false,
         };
@@ -100,36 +106,42 @@ impl Sync {
             .body(serde_json::to_string(&user)?)
             .send()?;
         if resp.status() == StatusCode::OK {
-            Ok(())
+            Ok(SyncOk::Created)
         } else {
-            Err(FetchError::StatusCode(resp.status()))
+            Err(SyncError::StatusCode(resp.status()))
         }
     }
 }
 
 #[derive(Debug)]
-pub enum FetchError {
+pub enum SyncOk {
+    Updated,
+    Created,
     NOP,
+}
+
+#[derive(Debug)]
+pub enum SyncError {
     Http(reqwest::Error),
     StatusCode(StatusCode),
     Json(serde_json::Error),
     IO(std::io::Error),
 }
 
-impl From<reqwest::Error> for FetchError {
-    fn from(err: reqwest::Error) -> FetchError {
-        FetchError::Http(err)
+impl From<reqwest::Error> for SyncError {
+    fn from(err: reqwest::Error) -> SyncError {
+        SyncError::Http(err)
     }
 }
 
-impl From<serde_json::Error> for FetchError {
-    fn from(err: serde_json::Error) -> FetchError {
-        FetchError::Json(err)
+impl From<serde_json::Error> for SyncError {
+    fn from(err: serde_json::Error) -> SyncError {
+        SyncError::Json(err)
     }
 }
 
-impl From<std::io::Error> for FetchError {
-    fn from(err: std::io::Error) -> FetchError {
-        FetchError::IO(err)
+impl From<std::io::Error> for SyncError {
+    fn from(err: std::io::Error) -> SyncError {
+        SyncError::IO(err)
     }
 }
