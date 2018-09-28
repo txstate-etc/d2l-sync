@@ -12,14 +12,16 @@ extern crate mysql;
 
 mod sync;
 mod source;
+mod schemas;
 
 //use chrono::Utc;
 use std::time::Duration;
 use std::env;
 use std::str::FromStr;
 
+use schemas::{UserBase, Role};
 use source::Source;
-use sync::{Sync, UserBase, Role};
+use sync::Sync;
 use reqwest::Client;
 
 lazy_static! {

@@ -1,4 +1,4 @@
-use sync::{UserBase, Role};
+use schemas::{UserBase, Role};
 use mysql::Pool;
 use mysql::error::Error;
 

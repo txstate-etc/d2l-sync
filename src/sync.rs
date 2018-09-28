@@ -1,15 +1,13 @@
-mod schemas;
-
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use base64::URL_SAFE_NO_PAD;
 
-use self::schemas::{UserReadOrUpdate, UserCreate, Activation};
-pub use self::schemas::{UserBase, Role};
 use hyper::StatusCode;
 use reqwest::Client;
 use std::io::Read;
+
+use schemas::{UserReadOrUpdate, UserCreate, Activation, UserBase, Role};
 
 const USR_PATH: &str = r#"/d2l/api/lp/1.20/users/"#;
 const USR_QUERY: &str = r#"&userName="#;
