@@ -179,7 +179,7 @@ fn main() {
         let mut events = match ids {
             ids@Some(_) => Ok(ids),
             // Pull list of ids from journal events
-            None => db.events(seqnum, seqnum+SEQNUM_LIMIT),
+            None => db.events(seqnum, SEQNUM_LIMIT),
         };
 
         loop {
@@ -226,7 +226,7 @@ fn main() {
             }
             //db.set_seqnum(seqnum);
             sleep(Duration::from_secs(5));
-            events = db.events(seqnum, seqnum+SEQNUM_LIMIT);
+            events = db.events(seqnum, SEQNUM_LIMIT);
         }
 
     } else {

@@ -1,6 +1,6 @@
 use schemas::{UserBase, Role};
 use mysql::{Pool, Value};
-use mysql::error::Error;
+use mysql::error::{Error, DriverError};
 use std::str::FromStr;
 use std::string::ToString;
 
@@ -20,11 +20,22 @@ impl Source {
     }
 
     // returns a vector of (Journal Sequence Number, Option<Internal User ID>)
-    pub fn events(&self, _start: usize, _limit: usize) -> Result<Option<Vec<(Option<usize>, Option<usize>)>>, Error> {
-        //let mut query_journal = self.pool.prepare(&self.query_journal)?;
-        //for row in query_user.execute((user,))? {
-        //}
-        Ok(None)
+    pub fn events(&self, start: usize, limit: usize) -> Result<Option<Vec<(Option<usize>, Option<usize>)>>, Error> {
+        if let Some(ref query_journal) = self.query_journal {
+            let mut query_journal = self.pool.prepare(query_journal)?;
+            let mut events = Vec::new();
+            for row in query_journal.execute((start, start+limit, start, start+limit))? {
+                let (sn, id) = mysql::from_row::<(usize, Option<usize>)>(row?);
+                events.push((Some(sn), id));
+            }
+            if events.len() == 0 {
+                Ok(None)
+            } else {
+                Ok(Some(events))
+            }
+        } else {
+            Err(Error::DriverError(DriverError::MissingNamedParameter("No parameters listed".to_string())))
+        }
     }
 
     pub fn query(&self, user: usize) -> Result<Option<(Role, UserBase)>, Error> {
