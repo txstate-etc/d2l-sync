@@ -1,5 +1,5 @@
 [package]
-name = "d2l"
+name = "d2l-sync"
 version = "0.1.0"
 authors = ["Charles Tabor <chastabor@gmail.com>"]
 

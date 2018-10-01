@@ -189,7 +189,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "d2l"
+name = "d2l-sync"
 version = "0.1.0"
 dependencies = [
  "base64 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
