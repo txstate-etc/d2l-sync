@@ -184,7 +184,7 @@ mod tests {
                 org_defined_id: Some("A00000000".to_string()),
                 external_email: Some("jdoe@txstate.edu".to_string()),
             },
-            role_id: "109".to_string(),
+            role_id: Role::Instructor.id().to_string(),
             is_active: true,
             send_creation_email: false,
         };

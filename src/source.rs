@@ -17,7 +17,15 @@ impl Source {
         })
     }
 
-    pub fn fetch(&self, user: usize) -> Result<Option<(Role, UserBase)>, Error> {
+    // returns a vector of (Journal Sequence Number, Option<Internal User ID>)
+    pub fn events(&self, _start: usize, _limit: usize) -> Result<Option<Vec<(Option<usize>, Option<usize>)>>, Error> {
+        //let mut query_journal = self.pool.prepare(&self.query_journal)?;
+        //for row in query_user.execute((user,))? {
+        //}
+        Ok(None)
+    }
+
+    pub fn query(&self, user: usize) -> Result<Option<(Role, UserBase)>, Error> {
         let mut query_user = self.pool.prepare(&self.query_user)?;
         for row in query_user.execute((user,))? {
             let (preferred, first, middle, last, user, id, email, role) = mysql::from_row::<(Option<String>, String, String, String, String, String, String, String)>(row?);
@@ -35,8 +43,5 @@ impl Source {
             return Ok(Some((Role::lossy_new(&role), user_base)));
         }
         Ok(None)
-    }
-    pub fn events(&self, _start: usize, _limit: usize) -> Result<(usize, Option<Vec<String>>), Error> {
-        Ok((0, None))
     }
 }

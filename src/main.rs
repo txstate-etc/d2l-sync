@@ -14,7 +14,7 @@ mod sync;
 mod source;
 mod schemas;
 
-//use chrono::Utc;
+use std::thread::sleep;
 use std::time::Duration;
 use std::env;
 use std::str::FromStr;
@@ -23,6 +23,8 @@ use schemas::{UserBase, Role};
 use source::Source;
 use sync::Sync;
 use reqwest::Client;
+
+const SEQNUM_LIMIT: usize = 5000;
 
 lazy_static! {
     static ref APP_ID: String = {
@@ -94,19 +96,29 @@ lazy_static! {
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let mut args = args.iter();
-    let mut id: Option<usize> = None;
+    let mut single_pass_flag = false;
+    let mut ids: Option<Vec<(Option<usize>, Option<usize>)>> = None;
     let mut data: Option<UserBase> = None;
     let mut role: Option<Role> = Some(Role::Student);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "-i" | "--ids" => if let Some(is) = args.next() {
+                let mut list = Vec::new();
+                for i in is.split(",") {
+                    list.push((None, Some(i.parse::<usize>().unwrap())));
+                }
+                if list.len() == 0 {
+                    eprintln!("No id values assigned to ids");
+                    std::process::exit(1);
+                }
+                single_pass_flag = true;
+                ids = Some(list);
+            },
             "-d" | "--data" => if let Some(d) = args.next() {
                 data = Some(serde_json::from_str(&d).unwrap());
             },
             "-r" | "--role"  => if let Some(r) = args.next() {
                 role = Some(Role::from_str(&r).unwrap());
-            },
-            "-i" | "--id" => if let Some(i) = args.next() {
-                id = Some(i.parse::<usize>().unwrap());
             },
             _ => {
                 eprintln!("Unknown option {:?}", arg);
@@ -114,6 +126,25 @@ fn main() {
             }
         }
     }
+    // WARN: if submitting data then must also provide a role. Since we have a default role then
+    // this is not an issue, however, should we remove the default role of Student then this check
+    // will be required.
+    //if data.is_some() && role.is_none() {
+    //    eprintln!("Error: A data update request requires a role must also be specified");
+    //    std::process::exit(1);
+    //}
+
+    // Setup backend database. NOTE: do NOT always need to query the journal
+    // if a list of internal IDs to update is provided via the command line.
+    // Also no backend database is required if a specific user and role is
+    // provided for a single update.
+    let db = if let (Some(ref source), Some(ref query_user)) = (&*SOURCE, &*QUERY_USER) {
+        Some(Source::new(source, query_user, &*QUERY_JOURNAL).unwrap())
+    } else {
+        None
+    };
+
+    // Setup http client syncing module
     let client = Client::builder()
         .timeout(Duration::from_secs(360))
         .build().expect("Unable to create client");
@@ -125,19 +156,81 @@ fn main() {
         uri_base: &*URI_BASE,
         client: client,
     };
-    if let (Some(id), Some(ref source), Some(ref query_user)) = (id, &*SOURCE, &*QUERY_USER) {
-        let db = Source::new(source, query_user, &*QUERY_JOURNAL).unwrap();
-        match db.fetch(id).unwrap() {
-            Some((r, u)) => match sync.upsert(r, &u) {
-                Ok(r) => println!("{:?}: {:?}", r, u),
-                Err(e) => eprintln!("Upsert error {:?}: {:?}", e, u),
-            },
-            None => println!("User {:?} not found", id),
-        }
-    } else if let (Some(r), Some(u)) = (role, data) {
+
+    // Check for single data/role request
+    if let (Some(r), Some(u)) = (role, data) {
         match sync.upsert(r, &u) {
-            Ok(r) => println!("{:?}: {:?}", r, u),
-            Err(e) => eprintln!("Upsert error {:?}: {:?}", e, u),
+            Ok(update_type) => println!("{:?}: {:?}", update_type, u),
+            Err(e) => {
+                eprintln!("Error: Upsert error {:?}: {:?}", e, u);
+                std::process::exit(1);
+            },
         }
+        std::process::exit(0);
+    }
+
+    // All future request types require backend database access to fulfill upsert requests
+    if let Some(ref db) = db {
+        // Pull sequence number
+        //let mut seqnum = db.get_seqnum();
+        let mut seqnum = 0;
+
+        // Pull list of ids from commmand line
+        let mut events = match ids {
+            ids@Some(_) => Ok(ids),
+            // Pull list of ids from journal events
+            None => db.events(seqnum, seqnum+SEQNUM_LIMIT),
+        };
+
+        loop {
+            match events {
+                Ok(Some(is)) => for (sn, uid) in is {
+                    if let Some(uid) = uid {
+                        match db.query(uid) {
+                            Ok(Some((r, ub))) => match sync.upsert(r, &ub) {
+                                Ok(update_type) => {
+                                    println!("{:?}: {:?}", update_type, uid);
+                                    if let Some(sn) = sn {
+                                        seqnum = sn;
+                                    }
+                                }
+                                Err(e) => eprintln!("Error: Upsert error {:?}: {:?}", e, ub),
+                            },
+                            Ok(None) => {
+                                println!("User {:?} not found", uid);
+                                if let Some(sn) = sn {
+                                    seqnum = sn;
+                                }
+                            },
+                            Err(e) => {
+                                eprintln!("Error: Database fetch error {:?}: {:?}", uid, e);
+                                break;
+                            }
+                        }
+                    } else {
+                        if let Some(sn) = sn {
+                            seqnum = sn;
+                        }
+                    }
+                },
+                Ok(None) => (),
+                Err(e) => {
+                    eprintln!("Error: Database events error {:?}", e);
+                    if !single_pass_flag {
+                        sleep(Duration::from_secs(55));
+                    }
+                },
+            }
+            if single_pass_flag {
+                break;
+            }
+            //db.set_seqnum(seqnum);
+            sleep(Duration::from_secs(5));
+            events = db.events(seqnum, seqnum+SEQNUM_LIMIT);
+        }
+
+    } else {
+        eprintln!("Error: Database connection is required");
+        std::process::exit(1);
     }
 }
