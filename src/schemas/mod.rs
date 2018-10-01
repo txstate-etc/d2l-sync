@@ -30,7 +30,7 @@
 //   "OrgDefinedId": String,
 //   "ExternalEmail": String,
 //
-//   "RoleId": String, # "109"="Instructor", "110"="Student"
+//   "RoleId": String, # "109"="Instructor"=Faculty, "110"="Student"
 //   "IsActive": true,
 //   "SendCreationEmail": false
 // }
@@ -54,26 +54,19 @@ pub struct ParseError {
     err: &'static str,
 }
 
-// "109" = Instructor, "110" = Student
+// "109" = Faculty, "118" = Staff, "110" = Student
 #[derive(Clone, Copy, Debug)]
 pub enum Role {
-    Instructor,
+    Faculty,
+    Staff,
     Student,
 }
 
 impl Role {
-    pub fn lossy_new(role_id: &str) -> Role {
-        match role_id {
-            "109" => Role::Instructor,
-            "110" => Role::Student,
-            // default to Student
-            _ => Role::Student,
-        }
-    }
-
     pub fn id(&self) -> &str {
         match self {
-            Role::Instructor => "109",
+            Role::Faculty => "109",
+            Role::Staff => "118",
             Role::Student => "110",
         }
     }
@@ -84,7 +77,8 @@ impl FromStr for Role {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Instructor" => Ok(Role::Instructor),
+            "Faculty" => Ok(Role::Faculty),
+            "Staff" => Ok(Role::Staff),
             "Student" => Ok(Role::Student),
             _ => Err(ParseError{err: "Invalid Role type"}),
         }
@@ -184,7 +178,7 @@ mod tests {
                 org_defined_id: Some("A00000000".to_string()),
                 external_email: Some("jdoe@txstate.edu".to_string()),
             },
-            role_id: Role::Instructor.id().to_string(),
+            role_id: Role::Faculty.id().to_string(),
             is_active: true,
             send_creation_email: false,
         };

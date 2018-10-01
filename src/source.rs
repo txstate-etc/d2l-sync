@@ -1,6 +1,8 @@
 use schemas::{UserBase, Role};
-use mysql::Pool;
+use mysql::{Pool, Value};
 use mysql::error::Error;
+use std::str::FromStr;
+use std::string::ToString;
 
 pub struct Source {
     pool: Pool,
@@ -40,7 +42,7 @@ impl Source {
             user_base.user_name = user;
             user_base.org_defined_id = Some(id);
             user_base.external_email = Some(email);
-            return Ok(Some((Role::lossy_new(&role), user_base)));
+            return Ok(Some((Role::from_str(&role).map_err(|e| Error::FromValueError(Value::from(format!("{:?}", e))))?, user_base)));
         }
         Ok(None)
     }
