@@ -70,13 +70,15 @@ impl Source {
     pub fn user(&self, user: usize) -> Result<Option<(Role, UserBase)>, Error> {
         let mut query_user = self.pool.prepare(&*QUERY_USER)?;
         for row in query_user.execute((user,))? {
-            let (preferred, first, middle, last, user, id, email, role) = mysql::from_row::<(Option<String>, String, String, String, String, String, String, String)>(row?);
+            let (preferred, first, middle, last, user, id, email, role) = mysql::from_row::<(Option<String>, String, Option<String>, String, String, String, String, String)>(row?);
             let mut user_base = UserBase::default();
             if let Some(preferred) = preferred {
                 user_base.first_name = preferred;
             } else {
                 user_base.first_name = first;
-                user_base.middle_name = middle;
+                if let Some(middle) = middle {
+                    user_base.middle_name = middle;
+                }
             }
             user_base.last_name = last;
             user_base.user_name = user;
