@@ -1,45 +1,69 @@
-use schemas::{UserBase, Role};
+use schemas::{UserBase, Role, ParseError};
 use mysql::{Pool, Value};
-use mysql::error::{Error, DriverError};
+use mysql::error::Error;
 use std::str::FromStr;
-use std::string::ToString;
+use std::env;
+
+lazy_static! {
+    static ref QUERY_JOURNAL_MAX_ID: String = {
+        match env::var("D2L_QUERY_JOURNAL_MAX_ID") {
+            Ok(q) => q,
+            Err(_) => panic!("D2L_QUERY_JOURNAL_MAX_ID environment variable not defined"),
+        }
+    };
+}
+
+lazy_static! {
+    static ref QUERY_JOURNAL: String = {
+        match env::var("D2L_QUERY_JOURNAL") {
+            Ok(q) => q,
+            Err(_) => panic!("D2L_QUERY_JOURNAL environment variable not defined"),
+        }
+    };
+}
+
+lazy_static! {
+    static ref QUERY_USER: String = {
+        match env::var("D2L_QUERY_USER") {
+            Ok(q) => q,
+            Err(_) => panic!("D2L_QUERY_USER environment variable not defined"),
+        }
+    };
+}
+
 
 pub struct Source {
     pool: Pool,
-    query_user: String,
-    query_journal: Option<String>,
 }
 
 impl Source {
-    pub fn new(uri: &str, query_user: &str, query_journal: &Option<String>) -> Result<Source, Error> {
+    pub fn new(uri: &str) -> Result<Source, Error> {
         Ok(Source{
             pool: Pool::new(uri)?,
-            query_user: query_user.to_string(),
-            query_journal: query_journal.clone(),
         })
     }
 
+//    pub fn journal_max_id() -> Result<Option<usize>, Error> {
+//        let mut 
+//    }
+
     // returns a vector of (Journal Sequence Number, Option<Internal User ID>)
-    pub fn events(&self, start: usize, limit: usize) -> Result<Option<Vec<(Option<usize>, Option<usize>)>>, Error> {
-        if let Some(ref query_journal) = self.query_journal {
-            let mut query_journal = self.pool.prepare(query_journal)?;
-            let mut events = Vec::new();
-            for row in query_journal.execute((start, start+limit, start, start+limit))? {
-                let (sn, id) = mysql::from_row::<(usize, Option<usize>)>(row?);
-                events.push((Some(sn), id));
-            }
-            if events.len() == 0 {
-                Ok(None)
-            } else {
-                Ok(Some(events))
-            }
+    pub fn journal(&self, start: usize, limit: usize) -> Result<Option<Vec<(Option<usize>, Option<usize>)>>, Error> {
+        let mut query_journal = self.pool.prepare(&*QUERY_JOURNAL)?;
+        let mut events = Vec::new();
+        for row in query_journal.execute((start, start+limit, start, start+limit))? {
+            let (sn, id) = mysql::from_row::<(usize, Option<usize>)>(row?);
+            events.push((Some(sn), id));
+        }
+        if events.len() == 0 {
+            Ok(None)
         } else {
-            Err(Error::DriverError(DriverError::MissingNamedParameter("No parameters listed".to_string())))
+            Ok(Some(events))
         }
     }
 
-    pub fn query(&self, user: usize) -> Result<Option<(Role, UserBase)>, Error> {
-        let mut query_user = self.pool.prepare(&self.query_user)?;
+    pub fn user(&self, user: usize) -> Result<Option<(Role, UserBase)>, Error> {
+        let mut query_user = self.pool.prepare(&*QUERY_USER)?;
         for row in query_user.execute((user,))? {
             let (preferred, first, middle, last, user, id, email, role) = mysql::from_row::<(Option<String>, String, String, String, String, String, String, String)>(row?);
             let mut user_base = UserBase::default();
@@ -53,8 +77,14 @@ impl Source {
             user_base.user_name = user;
             user_base.org_defined_id = Some(id);
             user_base.external_email = Some(email);
-            return Ok(Some((Role::from_str(&role).map_err(|e| Error::FromValueError(Value::from(format!("{:?}", e))))?, user_base)));
+            return Ok(Some((Role::from_str(&role)?, user_base)));
         }
         Ok(None)
+    }
+}
+
+impl From<ParseError> for Error {
+    fn from(err: ParseError) -> Error {
+        Error::FromValueError(Value::from(format!("{:?}", err)))
     }
 }

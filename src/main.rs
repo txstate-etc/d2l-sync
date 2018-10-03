@@ -75,24 +75,6 @@ lazy_static! {
     };
 }
 
-lazy_static! {
-    static ref QUERY_JOURNAL: Option<String> = {
-        match env::var("D2L_QUERY_JOURNAL") {
-            Ok(q) => Some(q),
-            Err(_) => None,
-        }
-    };
-}
-
-lazy_static! {
-    static ref QUERY_USER: Option<String> = {
-        match env::var("D2L_QUERY_USER") {
-            Ok(q) => Some(q),
-            Err(_) => None,
-        }
-    };
-}
-
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let mut args = args.iter();
@@ -138,8 +120,8 @@ fn main() {
     // if a list of internal IDs to update is provided via the command line.
     // Also no backend database is required if a specific user and role is
     // provided for a single update.
-    let db = if let (Some(ref source), Some(ref query_user)) = (&*SOURCE, &*QUERY_USER) {
-        Some(Source::new(source, query_user, &*QUERY_JOURNAL).unwrap())
+    let db = if let Some(ref source) = &*SOURCE {
+        Some(Source::new(source).unwrap())
     } else {
         None
     };
@@ -179,14 +161,14 @@ fn main() {
         let mut events = match ids {
             ids@Some(_) => Ok(ids),
             // Pull list of ids from journal events
-            None => db.events(seqnum, SEQNUM_LIMIT),
+            None => db.journal(seqnum, SEQNUM_LIMIT),
         };
 
         loop {
             match events {
                 Ok(Some(is)) => for (sn, uid) in is {
                     if let Some(uid) = uid {
-                        match db.query(uid) {
+                        match db.user(uid) {
                             Ok(Some((r, ub))) => match sync.upsert(r, &ub) {
                                 Ok(update_type) => {
                                     println!("{:?}: {:?}", update_type, uid);
@@ -226,11 +208,11 @@ fn main() {
             }
             //db.set_seqnum(seqnum);
             sleep(Duration::from_secs(5));
-            events = db.events(seqnum, SEQNUM_LIMIT);
+            events = db.journal(seqnum, SEQNUM_LIMIT);
         }
 
     } else {
-        eprintln!("Error: Database connection is required");
+        eprintln!("Error: D2L_SOURCE Database connection URI is required");
         std::process::exit(1);
     }
 }
