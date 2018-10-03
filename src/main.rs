@@ -18,6 +18,9 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::env;
 use std::str::FromStr;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::io::{Result, ErrorKind};
 
 use schemas::{UserBase, Role};
 use source::Source;
@@ -59,6 +62,12 @@ lazy_static! {
     };
 }
 
+lazy_static! {
+    static ref JOURNAL_ID_FILE: String = {
+        env::var("D2L_JOURNAL_ID_FILE").expect("D2L_JOURNAL_ID_FILE required")
+    };
+}
+
 /// SOURCE environment variable contains
 /// the "warehouse" connection uri.
 /// This database will be used to read
@@ -73,6 +82,27 @@ lazy_static! {
             Err(_) => None,
         }
     };
+}
+
+fn get_journal_id(file: &str) -> Option<usize> {
+    match File::open(file) {
+        Ok(mut file) => {
+            let mut jid = String::new();
+            file.read_to_string(&mut jid).expect("Unable to read journal id value");
+            // TODO: Turn this into a Result and let main handle issue
+            Some(jid.parse::<usize>().expect("Invalid journal id value"))
+        },
+        Err(e) => match e.kind() {
+            ErrorKind::NotFound => None,
+            _ => panic!(format!("Error: {:?}", e)),
+        },
+    }
+}
+
+fn set_journal_id(file: &str, id: usize) -> Result<()> {
+    let mut file = File::create(file)?;
+    file.write_all(id.to_string().as_bytes())?;
+    Ok(())
 }
 
 fn main() {
@@ -151,17 +181,33 @@ fn main() {
         std::process::exit(0);
     }
 
-    // All future request types require backend database access to fulfill upsert requests
+    // All future request types require backend database access to fulfill upsert requests.
     if let Some(ref db) = db {
-        // Pull sequence number
-        //let mut seqnum = db.get_seqnum();
         let mut seqnum = 0;
 
         // Pull list of ids from commmand line
         let mut events = match ids {
             ids@Some(_) => Ok(ids),
             // Pull list of ids from journal events
-            None => db.journal(seqnum, SEQNUM_LIMIT),
+            None => {
+                // Get Journal Sequence Number from file or pull max id from source as a starting
+                // point.
+                seqnum = match get_journal_id(&*JOURNAL_ID_FILE) {
+                    Some(id) => {
+                        println!("Utilizing journal id from file {:?}", id);
+                        id
+                    },
+                    None => match db.journal_max_id() {
+                        Ok(Some(id)) => {
+                            println!("Utilizing current journal id from db {:?}", id);
+                            id
+                        },
+                        Ok(None) => panic!("Error: Journal is empty"),
+                        Err(e) => panic!(format!("Error: Unable to retrieve Journal ID from source: {:?}", e)),
+                    },
+                };
+                db.journal(seqnum, SEQNUM_LIMIT)
+            },
         };
 
         loop {
@@ -206,7 +252,9 @@ fn main() {
             if single_pass_flag {
                 break;
             }
-            //db.set_seqnum(seqnum);
+            if let Err(e) = set_journal_id(&*JOURNAL_ID_FILE, seqnum) {
+                panic!(format!("Error: unable to write out journal id {:?}", e));
+            }
             sleep(Duration::from_secs(5));
             events = db.journal(seqnum, SEQNUM_LIMIT);
         }
