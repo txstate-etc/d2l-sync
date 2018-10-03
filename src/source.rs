@@ -43,9 +43,14 @@ impl Source {
         })
     }
 
-//    pub fn journal_max_id() -> Result<Option<usize>, Error> {
-//        let mut 
-//    }
+    pub fn journal_max_id(&self) -> Result<Option<usize>, Error> {
+        let mut query_journal_max_id = self.pool.prepare(&*QUERY_JOURNAL_MAX_ID)?;
+        for row in query_journal_max_id.execute(())? {
+            let msn = mysql::from_row::<usize>(row?);
+            return Ok(Some(msn));
+        }
+        Ok(None)
+    }
 
     // returns a vector of (Journal Sequence Number, Option<Internal User ID>)
     pub fn journal(&self, start: usize, limit: usize) -> Result<Option<Vec<(Option<usize>, Option<usize>)>>, Error> {
