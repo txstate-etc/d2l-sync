@@ -6,28 +6,19 @@ use std::env;
 
 lazy_static! {
     static ref QUERY_JOURNAL_MAX_ID: String = {
-        match env::var("D2L_QUERY_JOURNAL_MAX_ID") {
-            Ok(q) => q,
-            Err(_) => panic!("D2L_QUERY_JOURNAL_MAX_ID environment variable not defined"),
-        }
+        env::var("D2L_QUERY_JOURNAL_MAX_ID").expect("D2L_QUERY_JOURNAL_MAX_ID environment variable is required")
     };
 }
 
 lazy_static! {
     static ref QUERY_JOURNAL: String = {
-        match env::var("D2L_QUERY_JOURNAL") {
-            Ok(q) => q,
-            Err(_) => panic!("D2L_QUERY_JOURNAL environment variable not defined"),
-        }
+        env::var("D2L_QUERY_JOURNAL").expect("D2L_QUERY_JOURNAL environment variable is required")
     };
 }
 
 lazy_static! {
     static ref QUERY_USER: String = {
-        match env::var("D2L_QUERY_USER") {
-            Ok(q) => q,
-            Err(_) => panic!("D2L_QUERY_USER environment variable not defined"),
-        }
+        env::var("D2L_QUERY_USER").expect("D2L_QUERY_USER environment variable is required")
     };
 }
 
@@ -56,7 +47,7 @@ impl Source {
     pub fn journal(&self, start: usize, limit: usize) -> Result<Option<Vec<(Option<usize>, Option<usize>)>>, Error> {
         let mut query_journal = self.pool.prepare(&*QUERY_JOURNAL)?;
         let mut events = Vec::new();
-        for row in query_journal.execute((start, start+limit, start, start+limit))? {
+        for row in query_journal.execute((start, limit))? {
             let (sn, id) = mysql::from_row::<(usize, Option<usize>)>(row?);
             events.push((Some(sn), id));
         }

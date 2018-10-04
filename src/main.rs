@@ -27,29 +27,33 @@ use source::Source;
 use sync::Sync;
 use reqwest::Client;
 
-const SEQNUM_LIMIT: usize = 5000;
+lazy_static! { 
+    static ref JOURNAL_LIMIT: usize = {
+        env::var("D2L_JOURNAL_LIMIT").expect("D2L_JOURNAL_LIMIT environment variable is required").parse<usize>().expect("Invalid D2L_JOURNAL_LIMIT value")
+    };
+}
 
 lazy_static! {
     static ref APP_ID: String = {
-        env::var("D2L_APP_ID").expect("D2L_APP_ID required")
+        env::var("D2L_APP_ID").expect("D2L_APP_ID environment variable is required")
     };
 }
 
 lazy_static! {
     static ref APP_KEY: Vec<u8> = {
-        env::var("D2L_APP_KEY").expect("D2L_APP_KEY required").into_bytes()
+        env::var("D2L_APP_KEY").expect("D2L_APP_KEY environment variable is required").into_bytes()
     };
 }
 
 lazy_static! {
     static ref USR_ID: String = {
-        env::var("D2L_USR_ID").expect("D2L_USR_ID required")
+        env::var("D2L_USR_ID").expect("D2L_USR_ID environment variable is required")
     };
 }
 
 lazy_static! {
     static ref USR_KEY: Vec<u8> = {
-        env::var("D2L_USR_KEY").expect("D2L_USR_KEY required").into_bytes()
+        env::var("D2L_USR_KEY").expect("D2L_USR_KEY environment variable is required").into_bytes()
     };
 }
 
@@ -206,7 +210,7 @@ fn main() {
                         Err(e) => panic!(format!("Error: Unable to retrieve Journal ID from source: {:?}", e)),
                     },
                 };
-                db.journal(seqnum, SEQNUM_LIMIT)
+                db.journal(seqnum, JOURNAL_LIMIT)
             },
         };
 
