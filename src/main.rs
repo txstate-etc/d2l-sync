@@ -29,7 +29,7 @@ use reqwest::Client;
 
 lazy_static! { 
     static ref JOURNAL_LIMIT: usize = {
-        env::var("D2L_JOURNAL_LIMIT").expect("D2L_JOURNAL_LIMIT environment variable is required").parse<usize>().expect("Invalid D2L_JOURNAL_LIMIT value")
+        env::var("D2L_JOURNAL_LIMIT").expect("D2L_JOURNAL_LIMIT environment variable is required").parse::<usize>().expect("Invalid D2L_JOURNAL_LIMIT value")
     };
 }
 
@@ -210,7 +210,7 @@ fn main() {
                         Err(e) => panic!(format!("Error: Unable to retrieve Journal ID from source: {:?}", e)),
                     },
                 };
-                db.journal(seqnum, JOURNAL_LIMIT)
+                db.journal(seqnum, *JOURNAL_LIMIT)
             },
         };
 
@@ -260,7 +260,7 @@ fn main() {
                 panic!(format!("Error: unable to write out journal id {:?}", e));
             }
             sleep(Duration::from_secs(5));
-            events = db.journal(seqnum, SEQNUM_LIMIT);
+            events = db.journal(seqnum, *JOURNAL_LIMIT);
         }
 
     } else {
