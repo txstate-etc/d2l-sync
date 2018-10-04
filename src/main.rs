@@ -189,10 +189,11 @@ fn main() {
     if let Some(ref db) = db {
         let mut seqnum = 0;
 
-        // Pull list of ids from commmand line
         let mut events = match ids {
+            // Pull list of ids from commmand line
             ids@Some(_) => Ok(ids),
-            // Pull list of ids from journal events
+            // Pull initial list of ids from journal events
+            // NOTE: journal current location must now be managed.
             None => {
                 // Get Journal Sequence Number from file or pull max id from source as a starting
                 // point.
