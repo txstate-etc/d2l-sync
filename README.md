@@ -5,7 +5,7 @@ A Rust based docker application to keep Desire 2 Learn LMS user information in s
 
 ## Environment variables:
 * `D2L_APP_ID` and `D2L_APP_KEY` These are the application id and key used to sign requests. The application id and generated signature are included as query arguments in the request.
-* `D2L_USR_ID"` and `D2L_USR_KEY` These are the user id and key used to sign requests.
+* `D2L_USR_ID` and `D2L_USR_KEY` These are the user id and key used to sign requests.
 * `D2L_URI_BASE` This is the uri address to d2l for example `https://school_id.brightspace.com`.
 * `D2L_JOURNAL_LIMIT` This limits the number of users retrieved with updated journal entries.
 * `D2L_JOURNAL_ID_FILE` This is the location where the current journal id will be stored and loaded upon starup. If upon startup this file is not found the latest journal sequence number will be pulled from the journal and the process will start looking for updates from that point going forward.
@@ -20,8 +20,16 @@ A Rust based docker application to keep Desire 2 Learn LMS user information in s
 * `-r` | `--role` This is the role used when a value of the data option is used to create an account on d2l. The accepted values are Faculty, Staff, and Student. The default value is Student.
 
 ## NOTES:
-A service account must be created from which long lived application and user id/keys may be generated. Note application and user keys are eached used to sign requests. The following is a command-line example which generates a non padded url safe base64 encoded SHA256 HMAC signature for a request:
+A service account must be created via the D2L UI from which long lived application and user id/keys may be generated. The application and user keys are each are used to sign requests. The following is a command-line example which generates a non padded url safe base64 encoded SHA256 HMAC signature for a request:
 
 ```
-METHOD=GET; URL_PATH=/d2l/api/lp/1.20/users/214; EPOCH=$(date +%s); echo -ne "$METHOD&URL_PATH&$EPOCH" | openssl sha256 -hmac $KEY -binary | openssl base64 -e | tr '+/' '-_' | tr -d '=\n'
+KEY=<user or application key>
+METHOD=GET
+URL_PATH=/d2l/api/lp/1.20/users/214
+EPOCH=$(date +%s)
+echo -ne "$METHOD&URL_PATH&$EPOCH" |
+  openssl sha256 -hmac $KEY -binary |
+  openssl base64 -e |
+  tr '+/' '-_' |
+  tr -d '=\n'
 ```
