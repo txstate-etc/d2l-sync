@@ -95,7 +95,7 @@ pub struct Activation {
 #[serde(rename_all = "PascalCase")]
 pub struct UserBase {
     pub first_name: String,
-    pub middle_name: String,
+    pub middle_name: Option<String>,
     pub last_name: String,
     pub user_name: String,
     pub org_defined_id: Option<String>,
@@ -136,7 +136,7 @@ mod tests {
         let expected = UserReadOrUpdate {
             user_base: UserBase {
                 first_name: "John".to_string(),
-                middle_name: "".to_string(),
+                middle_name: Some("".to_string()),
                 last_name: "Doe".to_string(),
                 user_name: "j_d1@txstate.edu".to_string(),
                 org_defined_id: Some("A00000000".to_string()),
@@ -153,7 +153,7 @@ mod tests {
         let data = UserReadOrUpdate {
             user_base: UserBase {
                 first_name: "John".to_string(),
-                middle_name: "".to_string(),
+                middle_name: Some("".to_string()),
                 last_name: "Doe".to_string(),
                 user_name: "j_d1@txstate.edu".to_string(),
                 org_defined_id: Some("A00000000".to_string()),
@@ -172,7 +172,7 @@ mod tests {
         let data = UserCreate {
             user_base: UserBase {
                 first_name: "John".to_string(),
-                middle_name: "".to_string(),
+                middle_name: Some("".to_string()),
                 last_name: "Doe".to_string(),
                 user_name: "j_d1@txstate.edu".to_string(),
                 org_defined_id: Some("A00000000".to_string()),

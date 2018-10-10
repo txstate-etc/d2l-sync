@@ -68,7 +68,10 @@ impl Source {
             } else {
                 user_base.first_name = first;
                 if let Some(middle) = middle {
-                    user_base.middle_name = middle;
+                    user_base.middle_name = Some(middle);
+                } else {
+                    // Default to empty string according to D2L Schema
+                    user_base.middle_name = Some("".to_string());
                 }
             }
             user_base.last_name = last;
