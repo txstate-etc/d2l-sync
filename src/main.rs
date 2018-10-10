@@ -222,21 +222,21 @@ fn main() {
                         match db.user(uid) {
                             Ok(Some((r, ub))) => match sync.upsert(r, &ub) {
                                 Ok(update_type) => {
-                                    println!("{:?}: {:?}", update_type, uid);
+                                    println!("Info [{:?}]: {:?}: {:?}", sn, update_type, uid);
                                     if let Some(sn) = sn {
                                         seqnum = sn;
                                     }
                                 }
-                                Err(e) => eprintln!("Error: Upsert error {:?}: {:?}", e, ub),
+                                Err(e) => eprintln!("Error [{:?}]: Upsert error {:?}: {:?}", sn, e, ub),
                             },
                             Ok(None) => {
-                                println!("User {:?} not found", uid);
+                                println!("Info [{:?}]: User {:?} not found", sn, uid);
                                 if let Some(sn) = sn {
                                     seqnum = sn;
                                 }
                             },
                             Err(e) => {
-                                eprintln!("Error: Database fetch error {:?}: {:?}", uid, e);
+                                eprintln!("Error [{:?}]: Database fetch error {:?}: {:?}", sn, uid, e);
                                 break;
                             }
                         }
