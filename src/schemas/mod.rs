@@ -5,8 +5,13 @@
 //   "MiddleName": String,          # If Preferred First Name is set then leave MiddleName
 //                                  #    field blank otherwise use Middle Name from Banner
 //   "LastName": String,            # Use Last Name
-//   "UserName": String,            # Use federated namespaced id (This field is used in d2l
+//   "UserName": String,            # Use university id (This field is used in d2l
 //                                  #    api to retrieve an individual's user information
+//                                  #    We where supposed to be federated by using id@txstate.edu,
+//                                  #    however, d2l system will fail to add @*.brightspace.com
+//                                  #    and attempt to send email as txstate.edu domain. To
+//                                  #    allow this would be a security issue; so we will NOT
+//                                  #    utilize a federated system.
 //   "OrgDefinedId": String|null,   # Use A-Num/bannerid (This field is used for group searches,
 //                                  #    even though we use it as a unique identifier)
 //   "ExternalEmail": String|null,  # Use alias for user's email (This field is used in group
@@ -131,14 +136,14 @@ mod tests {
     #[test]
     fn test_read() {
 
-        let data = r#"{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1@txstate.edu","OrgDefinedId":"A00000000","ExternalEmail":"jdoe@txstate.edu","OrgId":6606,"UserId":100,"Activation":{"IsActive":true},"DisplayName":"John Doe","UniqueIdentifier":"j_d1@txstate.edu"}"#;
+        let data = r#"{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1","OrgDefinedId":"A00000000","ExternalEmail":"jdoe@txstate.edu","OrgId":6606,"UserId":100,"Activation":{"IsActive":true},"DisplayName":"John Doe","UniqueIdentifier":"j_d1@txstate.edu"}"#;
         let actual = serde_json::from_str(&data).unwrap();
         let expected = UserReadOrUpdate {
             user_base: UserBase {
                 first_name: "John".to_string(),
                 middle_name: Some("".to_string()),
                 last_name: "Doe".to_string(),
-                user_name: "j_d1@txstate.edu".to_string(),
+                user_name: "j_d1".to_string(),
                 org_defined_id: Some("A00000000".to_string()),
                 external_email: Some("jdoe@txstate.edu".to_string()),
             },
@@ -155,14 +160,14 @@ mod tests {
                 first_name: "John".to_string(),
                 middle_name: Some("".to_string()),
                 last_name: "Doe".to_string(),
-                user_name: "j_d1@txstate.edu".to_string(),
+                user_name: "j_d1".to_string(),
                 org_defined_id: Some("A00000000".to_string()),
                 external_email: Some("jdoe@txstate.edu".to_string()),
             },
             user_id: 100,
             activation: Activation{is_active: true},
         };
-        let expected = r#"{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1@txstate.edu","OrgDefinedId":"A00000000","ExternalEmail":"jdoe@txstate.edu","Activation":{"IsActive":true}}"#;
+        let expected = r#"{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1","OrgDefinedId":"A00000000","ExternalEmail":"jdoe@txstate.edu","Activation":{"IsActive":true}}"#;
         let actual = serde_json::to_string(&data).unwrap();
         assert_eq!(expected, actual);
     }
@@ -174,7 +179,7 @@ mod tests {
                 first_name: "John".to_string(),
                 middle_name: Some("".to_string()),
                 last_name: "Doe".to_string(),
-                user_name: "j_d1@txstate.edu".to_string(),
+                user_name: "j_d1".to_string(),
                 org_defined_id: Some("A00000000".to_string()),
                 external_email: Some("jdoe@txstate.edu".to_string()),
             },
@@ -182,7 +187,7 @@ mod tests {
             is_active: true,
             send_creation_email: false,
         };
-        let expected = r#"{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1@txstate.edu","OrgDefinedId":"A00000000","ExternalEmail":"jdoe@txstate.edu","RoleId":"109","IsActive":true,"SendCreationEmail":false}"#;
+        let expected = r#"{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1","OrgDefinedId":"A00000000","ExternalEmail":"jdoe@txstate.edu","RoleId":"109","IsActive":true,"SendCreationEmail":false}"#;
         let actual = serde_json::to_string(&data).unwrap();
         assert_eq!(expected, actual);
     }
