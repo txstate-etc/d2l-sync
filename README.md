@@ -12,11 +12,11 @@ A Rust based docker application to keep Desire 2 Learn LMS user information in s
 * `D2L_SOURCE` This is a uri with information of a read only account to a backend database used as the source for syncing user information to d2l. An example would be `mysql://usr:pwd@host:port/db`.
 * `D2L_QUERY_JOURNAL_MAX_ID` This is the query used to obtain the latest journal sequence number.
 * `D2L_QUERY_JOURNAL` This is the query used to pull a list of distinct internal user id and associated journal sequence numbers up to `D2L_JOURNAL_LIMIT` of updated users starting at the current journal sequence number which is periodically saved within the `D2L_JOURNAL_ID_FILE`.
-* `D2L_QUERY_USER` This is the query used to gather a user's information vi their internal user id.
+* `D2L_QUERY_USER` This is the query used to gather a user's information via their internal user id.
 
 ## Command-line options:
 * `-i` | `--ids` This option is used to provide a comma delimited list of internal user id's that we may wish to sync to d2l.
-* `-d` | `--data` This option is used to provide a json value filled with a users information you may wish to send to d2l. NOTE if you use this field you should also provide a role value for the -r option otherwise the default Student value will be used. An example value for this data option would `{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1@txstate.edu","OrgDefinedId":"X00000000","ExternalEmail":"jdoe@txstate.edu"}`
+* `-d` | `--data` This option is used to provide a json value filled with a users information you may wish to send to d2l. NOTE if you use this field you should also provide a role value for the -r option otherwise the default Student value will be used. An example value for this data option would `{"FirstName":"John","MiddleName":"","LastName":"Doe","UserName":"j_d1","OrgDefinedId":"X00000000","ExternalEmail":"jdoe@txstate.edu"}`
 * `-r` | `--role` This is the role used when a value of the data option is used to create an account on d2l. The accepted values are Faculty, Staff, and Student. The default value is Student.
 
 ## NOTES:
